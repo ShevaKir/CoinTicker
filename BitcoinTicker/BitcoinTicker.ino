@@ -14,12 +14,8 @@
 #define downLED 12
 Adafruit_SSD1306 display (SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);    //Create the display object
 
-const char* wifiNetworks[][2] = {
-  {"sheva", "66094623"},
-  {"turbaza_owner", "rgepam2016"},
-};
-
-const int networkCount = sizeof(wifiNetworks) / sizeof(wifiNetworks[0]);
+const char* ssid = "WiFi Name";                                               //Set your WiFi network name and password
+const char* password = "Password";
 
 const int httpsPort = 443;                                                    //Bitcoin price API powered by CoinGecko
 const String url = "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=USD&include_24hr_change=true";
@@ -101,66 +97,44 @@ const unsigned char bitcoinLogo [] PROGMEM =                                  //
 
 void setup() 
 {
-  Serial.begin(115200);
+  Serial.begin(115200);                                                       //Start the serial monitor
+  
+  pinMode(upLED, OUTPUT);                                                     //Define the LED pin outputs
+  pinMode(downLED, OUTPUT);
 
-  if (!display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS)) {
+  if (!display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS))                   //Connect to the display
+  {
     Serial.println(F("SSD1306 allocation failed"));
-    for (;;);
+    for (;;); // Don't proceed, loop forever
   }
 
-  display.clearDisplay();
-  display.setTextColor(SSD1306_WHITE);
+  display.clearDisplay();                                                     //Clear the display
+  display.setTextColor(SSD1306_WHITE);                                        //Set the text colour to white
+  display.drawBitmap(0, 0, bitcoinLogo, 128, 64, WHITE);                             //Display bitmap from array
+  display.display();
+  delay(2000);
+
+  display.clearDisplay();                                                     //Clear the display
+  display.setTextSize(1);                                                     //Set display parameters
+  display.setTextColor(WHITE);
   display.println("Connecting to WiFi...");
   display.display();
 
-  connectToWiFi();
-}
+  WiFi.begin(ssid, password);
 
-void connectToWiFi() {
-  for (int i = 0; i < networkCount; i++) {
-    const char* ssid = wifiNetworks[i][0];
-    const char* password = wifiNetworks[i][1];
-
-    display.clearDisplay();
-    display.setCursor(0, 0);
-    display.println("Trying:");
-    display.println(ssid);
-    display.display();
-
-    Serial.print("Connecting to WiFi: ");
-    Serial.println(ssid);
-
-    WiFi.begin(ssid, password);
-
-    int retryCount = 0;
-    while (WiFi.status() != WL_CONNECTED && retryCount < 20) { // Retry 20 times
-      delay(500);
-      Serial.print(".");
-      retryCount++;
-    }
-    Serial.println();
-
-    if (WiFi.status() == WL_CONNECTED) {
-      Serial.println("Connected!");
-      display.clearDisplay();
-      display.println("Connected to:");
-      display.println(ssid);
-      display.display();
-      delay(1500);
-      return; // Exit the function if connected
-    } else {
-      Serial.println("Failed to connect.");
-      display.clearDisplay();
-      display.println("Failed to connect to:");
-      display.println(ssid);
-      display.display();
-      delay(1500);
-    }
+  Serial.print("Connecting to WiFi...");
+  while (WiFi.status() != WL_CONNECTED)                                        //Connect to the WiFi network
+  {
+    delay(500);
+    Serial.print(".");
   }
+  Serial.println();
 
-  Serial.println("All networks failed.");
+  display.println("Connected to: ");                                           //Display message once connected
+  display.print(ssid);
+  display.display();
+  delay(1500);
   display.clearDisplay();
-  display.println("All networks failed.");
   display.display();
 }
 

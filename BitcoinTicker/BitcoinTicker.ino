@@ -14,8 +14,8 @@
 #define downLED 12
 Adafruit_SSD1306 display (SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);    //Create the display object
 
-const char* ssid = "WiFi Name";                                               //Set your WiFi network name and password
-const char* password = "Password";
+const char* ssid = "turbaza_owner";                                               //Set your WiFi network name and password
+const char* password = "rgepam2016";
 
 const int httpsPort = 443;                                                    //Bitcoin price API powered by CoinGecko
 const String url = "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=USD&include_24hr_change=true";

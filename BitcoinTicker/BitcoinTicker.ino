@@ -5,6 +5,7 @@
 #include <NTPClient.h> 
 #include <WiFiUdp.h>
 #include <ArduinoJson.h>
+#include <WiFiManager.h>
 
 #define SCREEN_WIDTH 128                                                      //Define the OLED display width and height
 #define SCREEN_HEIGHT 64
@@ -12,11 +13,10 @@
 #define SCREEN_ADDRESS 0x3C                                                   //I2C address for display
 #define upLED 13
 #define downLED 12
+#define BOOT_BUTTON 0
 Adafruit_SSD1306 display (SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);    //Create the display object
 
-const char* ssid = "turbaza_owner";                                               //Set your WiFi network name and password
-const char* password = "rgepam2016";
-
+unsigned long buttonPressTime = 0;
 const int httpsPort = 443;                                                    //Bitcoin price API powered by CoinGecko
 const String url = "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=USD&include_24hr_change=true";
 
@@ -95,53 +95,88 @@ const unsigned char bitcoinLogo [] PROGMEM =                                  //
   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
 };
 
+WiFiManager wifiManager;
+
 void setup() 
 {
-  Serial.begin(115200);                                                       //Start the serial monitor
+  Serial.begin(115200);                                                       // Start the serial monitor
   
-  pinMode(upLED, OUTPUT);                                                     //Define the LED pin outputs
+  pinMode(upLED, OUTPUT);                                                     // Define the LED pin outputs
   pinMode(downLED, OUTPUT);
+  pinMode(BOOT_BUTTON, INPUT_PULLUP);                                         // Настройка кнопки как INPUT_PULLUP
 
-  if (!display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS))                   //Connect to the display
+  if (!display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS))                   // Connect to the display
   {
     Serial.println(F("SSD1306 allocation failed"));
     for (;;); // Don't proceed, loop forever
   }
 
-  display.clearDisplay();                                                     //Clear the display
-  display.setTextColor(SSD1306_WHITE);                                        //Set the text colour to white
-  display.drawBitmap(0, 0, bitcoinLogo, 128, 64, WHITE);                             //Display bitmap from array
+  display.clearDisplay();                                                     // Clear the display
+  display.setTextColor(SSD1306_WHITE);                                        // Set the text colour to white
+  display.drawBitmap(0, 0, bitcoinLogo, 128, 64, WHITE);                      // Display bitmap from array
   display.display();
   delay(2000);
 
-  display.clearDisplay();                                                     //Clear the display
-  display.setTextSize(1);                                                     //Set display parameters
-  display.setTextColor(WHITE);
+  if (digitalRead(BOOT_BUTTON) == LOW)
+  {
+    unsigned long start = millis();
+    while (digitalRead(BOOT_BUTTON) == LOW)
+    {
+      if (millis() - start > 3000)
+      {
+        Serial.println("Entering WiFi config mode...");
+        
+        display.clearDisplay();
+        display.setTextSize(1);
+        display.setTextColor(SSD1306_WHITE);
+        display.println("WiFi Config Mode");
+        display.display();
+
+        wifiManager.resetSettings();
+        if (!wifiManager.autoConnect("CoinTracker", "bitcoin123"))
+        {
+          Serial.println("Failed to connect. Restarting...");
+          ESP.restart();
+        }
+
+        Serial.println("Connected to new WiFi!");
+        display.clearDisplay();
+        display.println("Connected to:");
+        display.println(WiFi.SSID());
+        display.display();
+        delay(2000);
+
+        break;                                                               
+      }
+    }
+  }
+
+  display.clearDisplay();
+  display.setTextSize(1);
+  display.setTextColor(SSD1306_WHITE);
   display.println("Connecting to WiFi...");
   display.display();
 
-  WiFi.begin(ssid, password);
-
-  Serial.print("Connecting to WiFi...");
-  while (WiFi.status() != WL_CONNECTED)                                        //Connect to the WiFi network
+  if (!wifiManager.autoConnect("CoinTracker", "bitcoin123"))
   {
-    delay(500);
-    Serial.print(".");
+    Serial.println("Failed to connect and hit timeout");
+    ESP.restart();
   }
-  Serial.println();
 
-  display.println("Connected to: ");                                           //Display message once connected
-  display.print(ssid);
+  Serial.println("Connected to WiFi!");
+
+  display.clearDisplay();
+  display.println("Connected to:");
+  display.println(WiFi.SSID());
   display.display();
-  delay(1500);
+  delay(2000);
+
   display.clearDisplay();
   display.display();
 }
 
 void loop() 
 {
-
-
   Serial.print("Connecting to ");                                                       //Display url on Serial monitor for debugging
   Serial.println(url);
 
@@ -177,13 +212,13 @@ void loop()
   String dayChangeString = "24hr. Change: "; 
   if (isUp)                                                                             //If price has increased from yesterday
   {
-    digitalWrite(upLED, HIGH);
-    digitalWrite(downLED, LOW);
+    analogWrite(upLED, 50);
+    analogWrite(downLED, 0);
   } 
   else                                                                                  //If price has decreased from yesterday
   {
-    digitalWrite(downLED, HIGH);
-    digitalWrite(upLED, LOW);
+    analogWrite(downLED, 50);
+    analogWrite(upLED, 0);
   }
 
   Serial.print("Percent Change: ");                                                     //Display the percentage change on the serial monitor
@@ -204,6 +239,7 @@ void loop()
   http.end();                                                                           //End the WiFi connection
  delay(15000); 
 }
+
 void printCenter(const String buf, int x, int y)                          //Function to centre the current price in the display width
 {
   int16_t x1, y1;
